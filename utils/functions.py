@@ -57,7 +57,7 @@ def get_owned_games(api_key, steamid):
 
 def get_player_bans(api, steamid):
     """
-    
+
     :param api:
     :param steamid:
     :return: out:
