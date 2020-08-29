@@ -1,11 +1,19 @@
 """
+Collects any steam IDs that are entered in the vacbanned.com website.
+For each pass, the last 20 steam IDs are added. If the steam ID is
+already in our set, it will be ignored.
+The script is set to run every minute until stopped manually.
 
+Reference
+---------
+http://www.vacbanned.com/
+http://www.vacbanned.com/listing/last
 """
 
 from bs4 import BeautifulSoup
 import requests
-import pickle
 import schedule
+import pickle
 import time
 
 from csgo_cheater_detection.config.config import last20_url, data_path
@@ -15,7 +23,7 @@ last20_url = last20_url
 data_path = data_path
 
 
-# Define the job to run every 1 minute
+# Define the job to run e very 1 minute
 def job():
 	# load the set of banned steamids
 	with open(f'{data_path}\\steamids.txt', "rb") as fp:

@@ -1,11 +1,29 @@
 """
+Collect player statistics for the list of steam IDs.
+The steps to collect data with steam APIs:
+    1. call GetPlayerSummaries - private profile is skipped
+        a) communityvisibilitystate = 1/2: Private profile
+        b) communityvisibilitystate = 3: Public profile
+    2. call GetOwnedGames - account with no game is skipped
+    3. call GetPlayerBans - record cheat/no cheat label
+    4. call GetUserStatsForGame - record player statistic for games
 
+If a steam ID passed through all checks, record the successful
+and print on console.
+
+Reference
+---------
+https://developer.valvesoftware.com/wiki/Steam_Web_API#GetPlayerSummaries_.28v0002.29
+https://developer.valvesoftware.com/wiki/Steam_Web_API#GetOwnedGames_.28v0001.29
+https://developer.valvesoftware.com/wiki/Steam_Web_API#GetPlayerBans_.28v1.29
+https://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/
 """
 
 import pickle
 import pandas as pd
 
 from steam.webapi import WebAPI
+from tqdm import tqdm
 
 from csgo_cheater_detection.utils.functions import *
 from csgo_cheater_detection.config.config import *
@@ -14,12 +32,14 @@ from csgo_cheater_detection.config.config import *
 api_key = api_key
 appid = appid
 data_path = data_path
+public_code = 3
+version = '_8_26_20_part_4'
 
 # loading list of steamids
 with open(f'{data_path}\\steamids.txt', 'rb') as fp:
     steamids = pickle.load(fp)
 
-samples = list(steamids)[0:4000]
+steamids = list(steamids)[30000:40000]
 
 # access
 api = WebAPI(api_key)
@@ -27,36 +47,43 @@ api = WebAPI(api_key)
 # create many lists that store feature
 game_count, playtime_forever, label, stats_list = [], [], [], []
 
-for steamid in samples:
-    # get player summaries
-    status = get_player_summaries(
+# loop through the steamids list
+for steamid in tqdm(steamids):
+    # get player account summaries and status
+    summary = get_player_summaries(
         api=api,
         steamid=steamid
     )
+    status = summary['response']['players']
+
+    # skip to the next steam id if the profile is empty
+    try:
+        code = status[0]['communityvisibilitystate']
+    except IndexError:
+        continue
 
     # skip to the next steam id if the profile is not public
-    code = status['response']['players'][0]['communityvisibilitystate']
-    if code != 3:
-        print(f'Private profile {steamid}')
+    if code != public_code:
         continue
+    else:
+        # get all games owned by player if profile is public
+        out = get_owned_games(
+            api_key=api_key,
+            steamid=steamid
+        )
 
-    # get all games owned by player
-    out = get_owned_games(
-        api_key=api_key,
-        steamid=steamid
-    )
-
+    # skip to the next steamID if Json conversion fail
+    if out == {}:
+        continue
     # skip to the next steamID if response is empty
-    if out['response'] == {}:
-        print(f'Empty game record {steamid}')
+    elif out['response'] == {}:
         continue
-
-    # record play time for CSGO (appid=730)
-    try:
-        game_list = out['response']['games']
-    except KeyError:
-        print(f'KeyError get_own_games {steamid}')
-        continue
+    else:
+        # record play time for CSGO (appid=730)
+        try:
+            game_list = out['response']['games']
+        except KeyError:
+            continue
 
     # save playtime for CSGO
     playtime = next((
@@ -66,42 +93,37 @@ for steamid in samples:
         0
     )
 
-    # if playtime is 0, skip to the next steamid
+    # if CSGO playtime is 0, skip to the next steamid
     if playtime == 0:
-        print(f'Does not own CSGO {steamid}')
         continue
-
-    # save game count
-    # append game_count and playtime_forever list
-    game_count_temp = out['response']['game_count']
-
-    # get VAC banned status of the player
-    out = get_player_bans(
-        api=api,
-        steamid=steamid
-    )
+    else:
+        # record the number of games player owned
+        game_count_temp = out['response']['game_count']
+        # get VAC banned status of the player
+        out = get_player_bans(
+            api=api,
+            steamid=steamid
+        )
 
     # skip player who is banned before CSGO released
     if out['players'][0]['DaysSinceLastBan'] > time_since_csgo_release:
-        print(f'Banned before released {steamid}')
         continue
+    else:
+        # save the label to the list
+        label_temp = out['players'][0]['VACBanned']
 
-    # save the label to the list
-    label_temp = out['players'][0]['VACBanned']
-
-    # get player statistics for CSGO
-    out = get_user_stats(
-        api=api,
-        steamid=steamid,
-        appid=appid
-    )
+        # get player statistics for CSGO
+        out = get_user_stats(
+            api=api,
+            steamid=steamid,
+            appid=appid
+        )
 
     # get the list of player statistics.
-    # skip if the list is somehow empty.
+    # skip the steam id if the list is somehow empty.
     try:
         player_stats = out['playerstats']['stats']
     except KeyError:
-        print(f'KeyError get_user_stats {steamid}')
         continue
 
     # save the statistics for players
@@ -110,16 +132,16 @@ for steamid in samples:
         stats_dict[stats['name']] = stats['value']
     stats_list.append(stats_dict)
 
-    # save the rest of the feature to list
+    # save the rest of the feature to their list
     playtime_forever.append(playtime)
     game_count.append(game_count_temp)
     label.append(label_temp)
-
-    # print retrieval status
-    print('Success!')
 
 # join together all lists to create one data frame
 df = pd.DataFrame(stats_list)
 df['game_count'] = game_count
 df['playtime'] = playtime_forever
 df['label'] = label
+
+# save the data
+df.to_csv(f'{data_path}\\csgo_cheater_data{version}.csv')
