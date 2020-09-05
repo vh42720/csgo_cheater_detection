@@ -16,10 +16,11 @@ import schedule
 import pickle
 import time
 
-from csgo_cheater_detection.config.config import last20_url, data_path
+from csgo_cheater_detection.config.config import *
 
 # parameters
-last20_url = last20_url
+vacbanned_last20 = vacbanned_last20
+vaclist_last20 = vaclist_last20
 data_path = data_path
 
 
@@ -30,12 +31,23 @@ def job():
 		steamids = pickle.load(fp)
 
 	# request from vacbanned.com the newly checked 20 steamids
-	r = requests.get(url=last20_url)
+	r = requests.get(url=vacbanned_last20)
 	soup = BeautifulSoup(r.text, 'html.parser')
+	r.close()
 
-	# adding new steamids pulled from the website
+	# adding new steamids pulled from vacbanned
+	# the steamids reside in the second column
 	for s in soup.select('table tr td:nth-of-type(2)'):
 		steamids.add(int(s.get_text()))
+
+	# request from VacList.com the last 20 banned steamids
+	r = requests.get(url=vaclist_last20)
+	r.close()
+	player_list = r.json()
+
+	# adding new steamids pulled from vaclist
+	for player in player_list:
+		steamids.add(int(player['steam_id']))
 
 	# print the number of steamids collected
 	print(len(steamids))

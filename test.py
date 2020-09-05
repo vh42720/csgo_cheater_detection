@@ -3,35 +3,34 @@ Temporary file for testing various functions and their results.
 This file will be removed after project completion.
 """
 
-import pickle
 import json
 import pandas as pd
-from csgo_cheater_detection.config.config import data_path
-from csgo_cheater_detection.utils.functions import *
-from steam.webapi import WebAPI
-
-from tqdm import tqdm
-
-from csgo_cheater_detection.utils.functions import *
+import requests
+from bs4 import BeautifulSoup
 from csgo_cheater_detection.config.config import *
+from csgo_cheater_detection.utils.functions import *
 
-# parameters from config.py
-api_key = api_key
-appid = appid
-data_path = data_path
-time_since_csgo_release = time_since_csgo_release
+# parameters
+steamid = 76561198873575426
 
-with open(f'{data_path}\\steamids.txt', 'rb') as fp:
-    steamids = pickle.load(fp)
+# run
+steaminfo = {
+        'key': api_key,
+        'steamid': steamid,
+        'format': 'JSON',
+        'include_appinfo': '1'
+    }
+r = requests.get('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/', params=steaminfo)
 
-steamids = list(steamids)[36020:36050]
+# if playtime
+try:
+	playtime = next((
+	        game['playtime_2weeks']
+	        for game in r.json()['response']['games']
+	        if game['appid'] == 730),
+	        0
+	    )
+except KeyError:
+	playtime = 0
 
-# access
-api = WebAPI(api_key)
-
-for steamid in tqdm(steamids):
-    out = get_player_summaries(
-        api=api,
-        steamid=steamid
-    )
-    print(out['response']['players'])
+print(r.text)

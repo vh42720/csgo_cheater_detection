@@ -1,61 +1,106 @@
 # Detecting cheaters in Counter Strike: Global Offensive (CS:GO)
 
-### Intro
+### Introduction
 
-What is CS:GO? Why is this a problem? Professional + Steam problems
+[Counter-Strike: Global Offensive or CS:GO](https://en.wikipedia.org/wiki/Counter-Strike:_Global_Offensive)
+is a competitive multiplayer first
+person shooter game developed by Valve and Hidden Path Entertainment. Since
+published in 2012, CS:GO sells over 25 millions copies while continues to be
+one of the most-played game in the world. However, one issue that always
+plague the game since release: cheating.
 
-### Goals
+Cheaters uses a variety of techniques/programs to gain an unfair advantage.
+Machine learning algorithm can detect these anomalies very well. In fact,
+Valve is currently using a deep learning neural net called [VACnet](https://www.pcgamer.com/vacnet-csgo/).
+We will attempt to build a similar neural net but at a much smaller scale.
 
-This project will apply machine learning to predict cheaters in CS:GO.
+### Goal
+
+This project will apply machine learning to detect cheaters in CS:GO. The algorithm
+will give a probability of the player is a cheater based on his lifetime in-game
+performance and some characteristics of the steam profile. If the probability
+is high, replays should be reviewed by other players to determine the player's
+legitimacy. The result should not be used for banning players. Banning a legitimate
+player means losing a paying customer.
 
 ### Data
 
-Registered Steam users are identified by a unique Steam ID, which can be
-used to retrieve public player information, in-game metrics, and instances
-of bans due to cheating detected by Valve Anti-Cheat (VAC).
+Fortunately, steam platform which hosts CS:GO provides an API which makes collecting data
+much easier. Registered Steam users are identified by a unique Steam ID, 
+which can be used to retrieve public player information, in-game metrics, 
+and instances of bans due to cheating detected by Valve Anti-Cheat (VAC).
+VAC banned status will become the label where True represents cheater and
+False represents non-cheater.
 
-Steps:
-1. find steam user ids that are known for cheating: feed user with cheating instances
-to vacbanned.com. However, this also label players who cheat for other game which is caught by VAC.
-2. find steam user playing CSGO that is known for not cheating. This turns out
-to be incredible hard since players range vary and not all VAC detected.
-Choosing a list of professional players might be the best approach for this
-as they have less incentives to cheat (or more??)
-3. compile the list and query into API => get steam data for CSGO => write to CSV
+How do we get a list of steam IDs that contains both cheaters and non-cheaters?
+Steam does not have that list (at least publicly). One approach would be crawling
+multiple lists of steam users who play CS:GO and hope for the best.
+However, most players are not cheaters and thus, this simply takes too much
+time.
+The other approach is much more elegant. Steam communities has built many websites
+to check if a player is VAC banned in the past. For this project, [VACBanned.com](http://www.vacbanned.com/)
+and [VAClist.net](https://vaclist.net/) will be used. If a player is suspicious in game,
+other players can search him on these websites for his VAC status. Thus, the steam IDs
+from these website will contain more true cheaters.
 
-Notes:
-Exclude steam ID without CS:GO or VAC banned before CS:GO release (or not? since this
-can become another feature => cheat_before). We also exclude new players.
+### APIs Pipelines
 
-### Steam APIs
+After obtaining a list of steam IDs, each is passed through four API calls for data collection:
+1. [GetPlayerSummaries](https://developer.valvesoftware.com/wiki/Steam_Web_API#GetPlayerSummaries_.28v0002.29)
+    - communityvisibilitystate that flags if a profile is private or public.
+    - If private: no statistics available, skip to next steam ID.
+    - If public: continue to the next call.
+2. [GetOwnedGames](https://developer.valvesoftware.com/wiki/Steam_Web_API#GetOwnedGames_.28v0001.29)
+    - playtime forever: a less experienced player who performs too well
+    is suspicious.
+    - playtime last 2 weeks: helps labeling. If an account is VAC banned from CS:GO,
+    they cannot play CS:GO again. Thus, if playtime last 2 weeks is greater than 1, change
+    the label to False.
+    - number of games owned: a player is less likely to cheat if he has multiple games (purchased
+    with money) in his library.
+3. [GetPlayerBans](https://developer.valvesoftware.com/wiki/Steam_Web_API#GetPlayerBans_.28v1.29)
+    - VAC banned status: become labels.
+4. [GetUserStatsForGame](https://developer.valvesoftware.com/wiki/Steam_Web_API#GetUserStatsForGame_.28v0002.29)
+    - returns a list of hundreds of statistics on player's performance.
 
-There are four APIs method calls that will be used here:
-1. GetPlayerSummaries
-2. GetOwnedGames
-3. GetPlayerBans
-4. GetUserStatsForGame
+### Labeling Issues
+
+There are two main problems with using VAC ban status as the label:
+1. A player can be banned at other games beside CS:GO. This remains one of the biggest flaw
+but this is the best label we can do given no internal data from Valve. However, CS:GO is the
+most played on steam for many years by a large margin. It is also the most vulnerable to cheat programs
+which increase the probability that a player is VAC banned from CS:GO. The second most played
+game is Dota 2 which limits the possibilities of cheats due to almost everything being server side.
+2. Cheaters can manually adjusting their program so they can appear innocent. If they are
+clever enough in the settings, it is impossible to detect them without identity which programs
+enable they hack in the background (which is not data science).
+3. VAC ban status is not 100% reliable. There are many cases of wrongly banned accounts and
+there are many cheaters' accounts are not banned. But Valve has improved VAC significantly
+in the last decade which saw a conviction rate of up to 80-90% True positive.
 
 ### Features
 
 The API can returns over 250 features for each user in CS:GO. This means that
-some thoughtful cleaning must be done. But can deep learning do this by itself?
+some thoughtful cleaning must be done.
 
 Ex: accuracy_pistol = total_hit_pistol/total_shot_pistol
 
 ### Models
 
-Apply ML or deep learning
+Apply ML and deep learning
 
 While this is a classification problem, outputs in the form of probability is more
-useful here for 2 practical reasons:
-1. threshold for cheater label can be manually adjusted. Banning a non cheater
-is much much worse than not banning a cheater in this case. Thus, False Positive
-rate must be very low for the model to be considered successful.
-2. if the probability is high, manual review of the player is better than
-blindly VAC banned.
+useful here for a practical reason: threshold for cheater label can be manually adjusted.
+This is extremely useful to solve the label uncertainty issue.
 
-## Initialize
+Notes: Banning a non cheater is much worse than not banning a cheater in this case.
+Thus, False Positive rate must be very low for the model to be considered successful.
+If the probability is high, manual review of the player is recommended.
 
-To start collecting data, first run the init.py file to create the 
-steamids file which contain the list of all steam ids. 
+### Reference
 
+[CS:GO Steam page](https://store.steampowered.com/app/730/CounterStrike_Global_Offensive/)
+
+[CS:GO Wikipedia](https://en.wikipedia.org/wiki/Counter-Strike:_Global_Offensive)
+
+[VACnet](https://www.pcgamer.com/vacnet-csgo/)
