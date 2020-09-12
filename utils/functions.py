@@ -83,7 +83,7 @@ def get_player_bans(api, steamid):
 
     :param api: steam API instance from steam.webapi.WebAPI
     :param steamid: integer, steam id of a user.
-    :return: out:
+    :return: out: a dictionary contains VAC record.
 
     Reference
     ---------
