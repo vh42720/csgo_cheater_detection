@@ -97,7 +97,6 @@ df = df[df['total_rounds_played'] > 0]
 df = df[df['total_time_played'] > 0]
 df = df[df['total_deaths'] > 0]
 
-
 # Transform even more statistics to ratio
 # [reference](https://nexosis.github.io/tutorials/detecting-cheaters-csgo)
 df['win_ratio'] = df['total_wins'] / df['total_rounds_played']
