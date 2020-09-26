@@ -6,15 +6,13 @@ import requests
 import json
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import classification_report, roc_auc_score, plot_precision_recall_curve, roc_curve
+from sklearn.metrics import roc_curve, precision_recall_curve
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 
 import keras
 import tensorflow as tf
-
-from csgo_cheater_detection.config.config import image_path
 
 
 def get_player_summaries(api, steamid):
@@ -232,10 +230,10 @@ def make_neural_network(input_dim=None, output_bias=None):
     ]
 
     # configs for neural network
-    layer_1_nodes = 350
-    layer_2_nodes = 350
-    layer_3_nodes = 350
-    layer_4_nodes = 350
+    layer_1_nodes = 190
+    layer_2_nodes = 190
+    layer_3_nodes = 190
+    layer_4_nodes = 190
     layer_5_nodes = 95
     output_nodes = 1
 
@@ -251,7 +249,7 @@ def make_neural_network(input_dim=None, output_bias=None):
         keras.layers.Dense(layer_4_nodes, activation='relu'),
         keras.layers.Dense(layer_5_nodes, activation='relu'),
         keras.layers.Dropout(0.5),
-        keras.layers.Dense(1, activation='sigmoid', bias_initializer=output_bias),
+        keras.layers.Dense(output_nodes, activation='sigmoid', bias_initializer=output_bias),
     ])
 
     # compile neural network
@@ -265,10 +263,23 @@ def make_neural_network(input_dim=None, output_bias=None):
 
 
 def plot_roc(name, labels, predictions, **kwargs):
+    """Plot the ROC curve for a given classifier
+
+    :param name: string, the classifier name
+    :param labels: array, the true y values
+    :param predictions: array, the predicted y values
+    :param kwargs: all other parameters if applicable
+    :return: plot the curve and label its name accordingly
+
+    Reference
+    ---------
+    https://www.tensorflow.org/tutorials/structured_data/imbalanced_data#plot_the_roc
+    """
+    # calculate fp and tp
     fp, tp, _ = roc_curve(labels, predictions)
 
-    fig = plt.plot(100*fp, 100*tp, linewidth=2, **kwargs)
-    plt.title(name)
+    # plot the curve
+    plt.plot(100*fp, 100*tp, label=name, linewidth=2, **kwargs)
     plt.xlabel('False positives [%]')
     plt.ylabel('True positives [%]')
     # plt.xlim([-0.5,20])
@@ -277,24 +288,27 @@ def plot_roc(name, labels, predictions, **kwargs):
     ax = plt.gca()
     ax.set_aspect('equal')
 
-    return fig
 
+def plot_precision_recall(name, labels, predictions, **kwargs):
+    """Plot the precision-recall curve for a given classifier
 
-# def save_score_plot(score_dict, sampling_name, classifier, X_test, y_test, y_pred):
-#     """
-#
-#     :param score_dict:
-#     :param sampling_name:
-#     :param classifier:
-#     :param X_test:
-#     :param y_test:
-#     :param y_pred:
-#     :return:
-#     """
-#     score_dict[sampling_name]['random_forest']['report'] = classification_report(y_test, y_pred)
-#     score_dict[sampling_name]['random_forest']['roc_auc_score'] = roc_auc_score(y_test, y_pred)
-#
-#     # Save the plot
-#     disp = plot_precision_recall_curve(classifier, X_test, y_test)
-#     disp.ax_.set_title(f'{sampling_name} sampling random forest precision-recall curve')
-#     plt.savefig(f'{image_path}\\{sampling_name}_random_forest_prc.png')
+    :param name: string, the classifier name
+    :param labels: array, the true y values
+    :param predictions: array, the predicted y values
+    :param kwargs: all other parameters if applicable
+    :return: plot the curve and label its name accordingly
+
+    Reference
+    ---------
+    https://machinelearningmastery.com/roc-curves-and-precision-recall-curves-for-classification-in-python/
+    """
+    # calculate precision recall values
+    precision, recall, _ = precision_recall_curve(labels, predictions)
+
+    # plot the curve
+    plt.plot(recall, precision, label=name, linewidth=2, **kwargs)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.grid(True)
+    ax = plt.gca()
+    ax.set_aspect('equal')

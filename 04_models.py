@@ -23,17 +23,20 @@ Since the data is imbalanced (with 85%+ non cheaters),
 model performance depends on 3 metrics.
 	- Precision = TP / (TP + FP)
 	- Recall = TP / (TP + FN)
-	- Balanced accuracy = (TPR + TNR) / 2
 	- ROC/AUC score = area under the curve
 
 Structures
 ----------
-The script is broken down into 4 parts
-	1. Preparing data
-	2. Logistic Classifier - baseline
-	3. Random forest
-	4. Neural Network
-For reproducibility, random_state = 25, seed = 25
+The script will recycle through 5 different datasets:
+original, random over-sampling, SMOTE, random under-sampling,
+and near-miss under sampling. For each dataset:
+	1. Split into train, validation and test sets
+	2. Fit logistic regression as baseline
+	3. Fit random forest with GridSearchCV
+	4. Train through neural network
+	5. Save the plots for comparison
+
+For reproducibility: random_state = 25, seed = 25
 Label clarification:
 	0: VAC ban is False / Non cheater
 	1: VAC ban is True / Cheater
@@ -50,14 +53,14 @@ https://en.wikipedia.org/wiki/Neural_network#:~:text=A%20neural%20network%20(NN)
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pickle
 
-from sklearn.metrics import classification_report, roc_auc_score, \
-	precision_recall_curve, plot_precision_recall_curve
+from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.linear_model import LogisticRegression
 
 from csgo_cheater_detection.config.config import *
 from csgo_cheater_detection.utils.functions import split_X_y, \
-	best_random_forest_clf, make_neural_network, plot_roc
+	best_random_forest_clf, make_neural_network, plot_roc, plot_precision_recall
 
 """
 Prepping X and y
@@ -90,6 +93,11 @@ for name in sampling_df.keys():
 		index_col=[0]
 	)
 
+# append the original data without any sampling methods
+sampling_df['original'] = pd.read_csv(
+	f'{data_path}\\csgo_cheater_data_8_30_20_full.csv'
+)
+
 # set seed = 25
 np.random.seed(seed)
 
@@ -106,6 +114,10 @@ for name, df in sampling_df.items():
 			test_size=0.2,
 			random_state=random_state)
 
+	# Initiate 2 plots
+	fig_pr = plt.figure('precision_recall_plot')
+	fig_roc = plt.figure('roc_plot')
+
 	"""
 	Logistic Regression
 	-------------------
@@ -121,15 +133,17 @@ for name, df in sampling_df.items():
 	clf.fit(X_train, y_train)
 
 	# Logistic regression performance
-	y_pred = clf.predict(X_test)
-	sampling_score[name]['logistic']['report'] = classification_report(y_test, y_pred)
+	y_pred, y_pred_proba = clf.predict(X_test), clf.predict_proba(X_test)[:, 1]
+	sampling_score[name]['logistic']['report'] = classification_report(y_test, y_pred, output_dict=True)
 	sampling_score[name]['logistic']['roc_auc_score'] = roc_auc_score(y_test, y_pred)
 
-	# Save the plot
-	disp = plot_precision_recall_curve(clf, X_test, y_test)
-	disp.ax_.set_title(f'{name} sampling logistic precision-recall curve')
-	plt.savefig(f'{image_path}\\{name}_logistic_prc.png')
-	plt.clf()
+	# Plot precision-recall curve
+	plt.figure('precision_recall_plot')
+	plot_precision_recall('logistic', y_test, y_pred_proba)
+
+	# Plot ROC curve
+	plt.figure('roc_plot')
+	plot_roc('logistic', y_test, y_pred_proba)
 
 	"""
 	Random Forest
@@ -154,15 +168,17 @@ for name, df in sampling_df.items():
 	rf = best_random_forest_clf(rf_grid, X_train, y_train)
 
 	# Random forest performance
-	y_pred = rf.predict(X_test)
-	sampling_score[name]['random_forest']['report'] = classification_report(y_test, y_pred)
+	y_pred, y_pred_proba = rf.predict(X_test), rf.predict_proba(X_test)[:, 1]
+	sampling_score[name]['random_forest']['report'] = classification_report(y_test, y_pred, output_dict=True)
 	sampling_score[name]['random_forest']['roc_auc_score'] = roc_auc_score(y_test, y_pred)
 
-	# Save the plot
-	disp = plot_precision_recall_curve(rf, X_test, y_test)
-	disp.ax_.set_title(f'{name} sampling random forest precision-recall curve')
-	plt.savefig(f'{image_path}\\{name}_random_forest_prc.png')
-	plt.clf()
+	# Plot precision-recall curve
+	plt.figure('precision_recall_plot')
+	plot_precision_recall('random_forest', y_test, y_pred_proba)
+
+	# Plot ROC curve
+	plt.figure('roc_plot')
+	plot_roc('random_forest', y_test, y_pred_proba)
 
 	"""
 	Neural Network
@@ -212,14 +228,29 @@ for name, df in sampling_df.items():
 	)
 
 	# prediction
-	y_pred = model.predict(X_test)
+	y_pred_proba = model.predict(X_test)
 	y_pred_label = y_pred >= 0.5
 
 	# Save reports for comparisons
-	sampling_score[name]['neural_network']['report'] = classification_report(y_test, y_pred_label)
+	sampling_score[name]['neural_network']['report'] = classification_report(y_test, y_pred_label, output_dict=True)
 	sampling_score[name]['neural_network']['roc_auc_score'] = roc_auc_score(y_test, y_pred_label)
 
-	# save plot
-	disp = plot_roc(f'{name} sampling neural network ROC curve', y_test, y_pred)
-	plt.savefig(f'{image_path}\\{name}_neural_network_prc.png')
+	# Plot precision-recall curve
+	plt.figure('precision_recall_plot')
+	plot_precision_recall('neural_network', y_test, y_pred_proba)
+	plt.legend(loc='lower right')
+	plt.title(f'{name} sampling precision-recall curves')
+	plt.savefig(f'{image_path}\\{name}_pr.png')
 	plt.clf()
+
+	# Plot ROC curve
+	plt.figure('roc_plot')
+	plot_roc('neural_network', y_test, y_pred_proba)
+	plt.legend(loc='lower right')
+	plt.title(f'{name} sampling ROC curves')
+	plt.savefig(f'{image_path}\\{name}_roc.png')
+	plt.clf()
+
+# save the dictionary
+with open(f'{data_path}\\score_dict.txt', 'wb') as fp:
+	pickle.dump(sampling_score, fp)

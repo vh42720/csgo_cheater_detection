@@ -3,34 +3,14 @@ Temporary file for testing various functions and their results.
 This file will be removed after project completion.
 """
 
-import json
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-from csgo_cheater_detection.config.config import *
-from csgo_cheater_detection.utils.functions import *
+import pickle
+import pprint
 
-# parameters
-steamid = 76561198873575426
+from csgo_cheater_detection.config.config import data_path
 
-# run
-steaminfo = {
-        'key': api_key,
-        'steamid': steamid,
-        'format': 'JSON',
-        'include_appinfo': '1'
-    }
-r = requests.get('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/', params=steaminfo)
 
-# if playtime
-try:
-	playtime = next((
-	        game['playtime_2weeks']
-	        for game in r.json()['response']['games']
-	        if game['appid'] == 730),
-	        0
-	    )
-except KeyError:
-	playtime = 0
+with open(f'{data_path}\\score_dict.txt', 'rb') as fp:
+	score_dict = pickle.load(fp)
 
-print(r.text)
+pprint.pprint(score_dict)
+
