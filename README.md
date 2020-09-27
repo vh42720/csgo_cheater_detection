@@ -81,21 +81,64 @@ in the last decade which saw a conviction rate of up to 80-90% True positive.
 ### Features
 
 The API can returns over 250 features for each user in CS:GO. This means that
-some thoughtful cleaning must be done.
+some thoughtful cleaning must be done. As advised [here](https://nexosis.github.io/tutorials/detecting-cheaters-csgo), 
+many calculations below gives a better understanding of a player performance.
 
-Ex: accuracy_pistol = total_hit_pistol/total_shot_pistol
+The final number of features is 190.
 
+accuracy_{gun_type} = total_hit_{gun_type} / total_shot_{gun_type}  
+win_ratio = total_wins / total_rounds_played  
+kill_to_death_ratio = total_kills / total_deaths  
+total_wins_per_hour = ((total_wins / total_time_played) / 60) / 60 (seconds -> hours)  
+mvp_per_round = total_mvps / total_rounds_played  
+total_headshots_per_round = total_kills_headshot / total_rounds_played  
+
+### Imbalanced data and sampling methods
+
+As with any fraud detection kind of problem, the data is imbalanced as cheaters
+are the minority. Our data also scraped using websites to check for cheaters 
+which means the percentage of cheaters is also higher than normal. Some
+model adjustments and sampling methods are used to combat against the imbalanced.
+
+Model adjustments:
+1. Initial bias - reduce learning time and loss
+2. Class weights - gives more emphasis to TRUE label
+
+Sampling methods:
+1. [Down sampling](https://machinelearningmastery.com/undersampling-algorithms-for-imbalanced-classification/)
+    - Random under-sampling: randomly removes observations of the majority class.
+    - Near-miss: select examples based on the distance of majority class examples 
+    to minority class examples.
+2. [Up sampling](https://machinelearningmastery.com/random-oversampling-and-undersampling-for-imbalanced-classification/)
+    - Random over-sampling: randomly duplicates observations from the minority class 
+    in order to make its signal stronger.
+    - SMOTE: varies attributes of the observations to create new synthetic samples.
+    
 ### Models
 
-Apply ML and deep learning
+Each data set from samplings is fitted with 3 algorithm:  
+- Logistic Regression: serve as a baseline
+- Random forest: tree based high performing algorithm
+- Neural network: dense 5 layers NN
+
+### Metrics
+
+Since accuracy is not a good indicator for model performance in imbalanced
+data cases, some of the useful statistics used are:
+1. Precision = TP / (TP + FP)
+2. Recall = TP / (TP + FN)
+3. ROC-AUC curve
 
 While this is a classification problem, outputs in the form of probability is more
 useful here for a practical reason: threshold for cheater label can be manually adjusted.
 This is extremely useful to solve the label uncertainty issue.
 
-Notes: Banning a non cheater is much worse than not banning a cheater in this case.
+Banning a non cheater is much worse than not banning a cheater in this case.
 Thus, False Positive rate must be very low for the model to be considered successful.
-If the probability is high, manual review of the player is recommended.
+If the probability of cheating is high, manual review of the player is recommended.
+
+### Presentation
+[Google Slides](https://docs.google.com/presentation/d/1IS8PDUbVFyQcrpySkVtlC6HSJ1IKukvSSGL-e7rjlgc/edit?usp=sharing)
 
 ### Reference
 
@@ -104,3 +147,7 @@ If the probability is high, manual review of the player is recommended.
 [CS:GO Wikipedia](https://en.wikipedia.org/wiki/Counter-Strike:_Global_Offensive)
 
 [VACnet](https://www.pcgamer.com/vacnet-csgo/)
+
+[Detecting CS:GO cheaters](https://nexosis.github.io/tutorials/detecting-cheaters-csgo)
+
+[Tensorflow classification on imbalanced data](https://www.tensorflow.org/tutorials/structured_data/imbalanced_data#class_weights)
