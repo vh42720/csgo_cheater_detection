@@ -5,7 +5,7 @@
 [Counter-Strike: Global Offensive or CS:GO](https://en.wikipedia.org/wiki/Counter-Strike:_Global_Offensive)
 is a competitive multiplayer first
 person shooter game developed by Valve and Hidden Path Entertainment. Since
-published in 2012, CS:GO sells over 25 millions copies while continues to be
+published in 2012, CS:GO sells over 25 millions of copies while continues to be
 one of the most-played game in the world. However, one issue that always
 plague the game since release: cheating.
 
@@ -117,7 +117,7 @@ Sampling methods:
 ### Models
 
 Each data set from samplings is fitted with 3 algorithm:  
-- Logistic Regression: serve as a baseline
+- Logistic Regression: serves as a baseline
 - Random forest: tree based high performing algorithm
 - Neural network: dense 5 layers NN
 
