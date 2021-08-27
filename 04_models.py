@@ -63,7 +63,7 @@ from csgo_cheater_detection.utils.functions import split_X_y, \
 	best_random_forest_clf, make_neural_network, plot_roc, plot_precision_recall
 
 """
-Prepping X and y
+Preparing X and y
 ----------------
 Split data set with 80% training and 20% testing.
 Split training data into 80% training and 20% validation.	

@@ -37,7 +37,6 @@ https://imbalanced-learn.readthedocs.io/en/stable/generated/imblearn.over_sampli
 """
 
 import pandas as pd
-import pickle
 import numpy as np
 
 from imblearn.over_sampling import RandomOverSampler, SMOTE
